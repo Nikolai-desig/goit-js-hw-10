@@ -1,20 +1,7 @@
 import './css/styles.css';
 import debounce from 'lodash.debounce';
 import Notiflix from 'notiflix';
-
-function fetchCountries(name) {
-  const URL = `https://restcountries.com/v3.1/name/${name}?fields=name,capital,population,flags,languages`;
-  return fetch(URL)
-    .then(response => {
-      return response.json();
-    })
-    .then(data => {
-      return data;
-    })
-    .catch(error => {
-      console.error(error);
-    });
-}
+import { fetchCountries } from './fetchCountries';
 
 const DEBOUNCE_DELAY = 300;
 
@@ -26,9 +13,9 @@ const refs = {
 
 refs.searchBox.addEventListener('input', debounce(onSearch, DEBOUNCE_DELAY));
 
-function onSearch(e) {
-  e.preventDefault();
-  const countryName = e.target.value.trim();
+function onSearch(evt) {
+  evt.preventDefault();
+  const countryName = evt.target.value.trim();
   if (!countryName) {
     clearCountryList();
     clearCountryInfo();
@@ -36,9 +23,13 @@ function onSearch(e) {
   }
   fetchCountries(countryName)
     .then(renderCountries)
-    .catch(error => {
-      alertNoName(error);
-    });
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(response.status);
+      }
+      return response.json();
+    })
+    // .catch(alertNoName);
 }
 
 function renderCountries(countries) {
@@ -48,11 +39,14 @@ function renderCountries(countries) {
   };
 
   if (countries.length > 1 && countries.length <= 10) {
+    clearCountryList();
     const markupList = countries.map(({ name, flags }) => {
       return `<li><img src="${flags.svg}" alt="${flags.alt}" width="50">${name.official}</li>`;
     })
-      .join('');
+    .join('');
     refs.countryList.insertAdjacentHTML('beforeend', markupList)
+    .filter(
+    (country, index, array) => array.indexOf(country) === index);
   };
 
   if (countries.length === 1) {
@@ -66,6 +60,11 @@ function renderCountries(countries) {
     .join();
     refs.countryInfo.insertAdjacentHTML('beforeend', markupInfo);
   };
+
+  if (!countries.length) {
+    alertNoName()
+    return
+   };
 }
 
 function clearCountryList() {
